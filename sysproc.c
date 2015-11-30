@@ -100,3 +100,22 @@ sys_signal(void)
 		return -1;
 	return signal(signum, (sighandler_t)handler);
 }
+
+int
+sys_advanceprocstats(void) {
+       advanceprocstats();
+       return 0;
+}
+
+int
+sys_wait_stat(void)
+{
+      // struct perf *perfP=0;
+	   int perfP = 0;
+       cprintf("sys_wait_stat \n");
+       //if(argptr(0, (char**)&perfP, 32) < 0)
+       if(argint(0,&perfP) < 0)
+               return -1;
+       return  wait_stat((struct perf *)perfP);
+       //return  wait_stat((struct perf *)perfP);
+}

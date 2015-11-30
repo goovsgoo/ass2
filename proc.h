@@ -52,6 +52,14 @@ struct context {
 
 enum procstate { UNUSED, EMBRYO, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
+struct perf {
+  int ctime;					//Creation time
+  int ttime;					//Termination time
+  int stime;					//Sleeping state time
+  int retime;					//Ready state time
+  int rutime;					//Running state time
+};
+
 // Per-process state
 struct proc {
   uint sz;                     	// Size of process memory (bytes)
@@ -69,6 +77,13 @@ struct proc {
   char name[16];               	// Process name (debugging)
   int pending;			// Holds 32-bit integer, representing up to 32 pending singals for this process
   sighandler_t signal_handlers[SIGNUM]; // an array of pointers to handler functins for the signals 
+  int ctime;					//Creation time
+  int ttime;					//Termination time
+  int stime;					//Sleeping state time
+  int retime;					//Ready state time
+  int rutime;					//Running state time
+  int runQuanta ;					//run time from quanta to quanta
+  int priority;
 };
 
 // Process memory is laid out contiguously, low addresses first:

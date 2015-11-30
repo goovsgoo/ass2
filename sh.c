@@ -155,6 +155,21 @@ main(void)
     }
   }
   
+#ifdef DEFAULT
+ 	printf(1, "RUNNING DEFAULT SCHEDULER\n");
+ #endif
+ #ifdef FRR
+// #ifndef FCFS
+ 	printf(1, "RUNNING FIFO ROUND RUBIN SCHEDULER\n");
+// #endif
+ #endif
+ #ifdef FCFS
+ 	printf(1, "RUNNING FIRST COME FIRST SERVED SCHEDULER\n");
+ #endif
+ #ifdef CFS
+ 	printf(1, "RUNNING COMPLETELY FAIR SCHEDULING SCHEDULER\n");
+ #endif
+
   // Read and run input commands.
   while(getcmd(buf, sizeof(buf)) >= 0){
     if(buf[0] == 'c' && buf[1] == 'd' && buf[2] == ' '){
