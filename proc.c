@@ -473,6 +473,6 @@ signal(int signum, sighandler_t handler) {
 	else {	
 	    retHandler =  proc->signal_handlers[signum];
 	    proc->signal_handlers[signum] = handler;
-	}
+	} 
 	return (int)retHandler;
 }
