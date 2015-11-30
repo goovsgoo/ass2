@@ -1,8 +1,8 @@
 // Segments in proc->gdt.
 #define NSEGS     7
+#define NUMSIG 32
 
 // Per-CPU state
-
 struct cpu {
   uchar id;                    // Local APIC ID; index into cpus[] below
   struct context *scheduler;   // swtch() here to enter scheduler
@@ -67,6 +67,8 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
+  int pending[NUMSIG];			//Represents all currently unhandled (pending) signals.
+  int* signalHandler[NUMSIG]; 	//array of NUMSIG every entry is a pointer to a function.
 };
 
 // Process memory is laid out contiguously, low addresses first:
