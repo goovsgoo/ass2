@@ -104,8 +104,8 @@ trap(struct trapframe *tf)
   // Force process to give up CPU on clock tick.
   // If interrupts were on while locks held, would need to check nlock.
   if(proc && proc->state == RUNNING && tf->trapno == T_IRQ0+IRQ_TIMER){
-	 // cprintf(" \n ******* pid=%d; runQuanta=%d; rutime=%d; \n",proc->pid,proc->runQuanta,proc->rutime-1);
 	  if( proc->runQuanta % QUANTA == 0 ){
+		  //cprintf(" \n ******* pid=%d; runQuanta=%d; rutime=%d; \n",proc->pid,proc->runQuanta,proc->rutime-1);
 		  proc->runQuanta=proc->rutime;
 		  yield();
 	  }

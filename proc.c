@@ -20,10 +20,19 @@ extern void trapret(void);
 
 static void wakeup1(void *chan);
 
+#ifdef FRR
+struct {
+	struct proc* first;
+	struct proc* last;
+} rrqueue;
+#endif
+
 int x=1;
 int y=2;
 int z=3;
 int w=4;
+
+int totalTickets=0;
 
 int
 xorshift128(void) {
@@ -59,6 +68,8 @@ allocproc(void)
 found:
   p->state = EMBRYO;
   p->pid = nextpid++;
+  p->tickets = EXE_TICKETS;
+  totalTickets += EXE_TICKETS;
   acquire(&tickslock);
   p->ctime = ticks;
   release(&tickslock);
@@ -115,6 +126,14 @@ userinit(void)
   p->cwd = namei("/");
 
   p->state = RUNNABLE;
+  p->tickets = EXE_TICKETS;
+#ifdef FRR
+	if (!rrqueue.first)
+		rrqueue.first = p;
+	if (rrqueue.last)
+		rrqueue.last->rrnext = p;
+	rrqueue.last = p;
+#endif
 }
 
 // Grow current process's memory by n bytes.
@@ -181,6 +200,13 @@ fork(void)
   // lock to force the compiler to emit the np->state write last.
   acquire(&ptable.lock);
   np->state = RUNNABLE;
+  #ifdef FRR
+	if (!rrqueue.first)
+		rrqueue.first = np;
+	if (rrqueue.last)
+		rrqueue.last->rrnext = np;
+	rrqueue.last = np;
+  #endif
   release(&ptable.lock);
   
   return pid;
@@ -213,6 +239,7 @@ exit(void)
 
   acquire(&ptable.lock);
 
+  totalTickets -= proc->tickets;
   // Parent might be sleeping in wait().
   wakeup1(proc->parent);
 
@@ -298,10 +325,10 @@ scheduler(void)
 
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
+#ifdef DEFAULT
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
       if(p->state != RUNNABLE)
         continue;
-
       // Switch to chosen process.  It is the process's job
       // to release ptable.lock and then reacquire it
       // before jumping back to us.
@@ -315,6 +342,29 @@ scheduler(void)
       // It should have changed its p->state before coming back.
       proc = 0;
     }
+#endif
+#ifdef FRR
+    		while ( (p = rrqueue.first) ) {
+    			if  (p->state != RUNNABLE) {
+    				rrqueue.first = p->rrnext;
+    				p->rrnext = 0;git
+    				continue;
+    			}
+    			cprintf("%d %d\n", p->pid, p->tickets);
+    			proc = p;
+    			switchuvm(p);
+    			p->state = RUNNING;
+    			rrqueue.first = p->rrnext;
+    			p->rrnext = 0;
+    			swtch(&cpu->scheduler, proc->context);
+    			switchkvm();
+
+    			// Process is done running for now.
+    			// It should have changed its p->state before coming back.
+    			proc = 0;
+    			//break;
+    		}
+#endif
     release(&ptable.lock);
 
   }
@@ -346,6 +396,13 @@ yield(void)
 {
   acquire(&ptable.lock);  //DOC: yieldlock
   proc->state = RUNNABLE;
+  #ifdef FRR
+	if (!rrqueue.first)
+		rrqueue.first = proc;
+	if (rrqueue.last)
+		rrqueue.last->rrnext = proc;
+	rrqueue.last = proc;
+  #endif
   sched();
   release(&ptable.lock);
 }
@@ -395,6 +452,7 @@ sleep(void *chan, struct spinlock *lk)
   // Go to sleep.
   proc->chan = chan;
   proc->state = SLEEPING;
+  totalTickets -= proc->tickets;
   sched();
 
   // Tidy up.
@@ -416,8 +474,17 @@ wakeup1(void *chan)
   struct proc *p;
 
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
-    if(p->state == SLEEPING && p->chan == chan)
+    if(p->state == SLEEPING && p->chan == chan){
       p->state = RUNNABLE;
+     totalTickets += p->tickets;
+	  #ifdef FRR
+			if (!rrqueue.first)
+				rrqueue.first = p;
+			if (rrqueue.last)
+				rrqueue.last->rrnext = p;
+			rrqueue.last = p;
+	  #endif
+    }
 }
 
 // Wake up all processes sleeping on chan.
@@ -442,8 +509,16 @@ kill(int pid)
     if(p->pid == pid){
       p->killed = 1;
       // Wake process from sleep if necessary.
-      if(p->state == SLEEPING)
+      if(p->state == SLEEPING){
         p->state = RUNNABLE;
+		#ifdef FRR
+				if (!rrqueue.first)
+					rrqueue.first = p;
+				if (rrqueue.last)
+					rrqueue.last->rrnext = p;
+				rrqueue.last = p;
+		#endif
+      }
       release(&ptable.lock);
       return 0;
     }

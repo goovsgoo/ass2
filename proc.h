@@ -1,6 +1,7 @@
 // Segments in proc->gdt.
 #define NSEGS     7
 #define SIGNUM     32
+#define EXE_TICKETS 1000
 
 // Per-CPU state
 struct cpu {
@@ -82,8 +83,12 @@ struct proc {
   int stime;					//Sleeping state time
   int retime;					//Ready state time
   int rutime;					//Running state time
-  int runQuanta ;					//run time from quanta to quanta
+  int runQuanta ;				//run time from quanta to quanta
   int priority;
+  int tickets;					//number of tuckets for lottery
+  #ifdef FRR
+    struct proc* rrnext;
+  #endif
 };
 
 // Process memory is laid out contiguously, low addresses first:
