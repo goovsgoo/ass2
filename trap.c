@@ -14,6 +14,9 @@ extern uint vectors[];  // in vectors.S: array of 256 entry pointers
 struct spinlock tickslock;
 uint ticks;
 
+extern int implicit_sigret();
+extern int end_of_sigret();
+
 void
 tvinit(void)
 {
@@ -30,6 +33,105 @@ void
 idtinit(void)
 {
   lidt(idt, sizeof(idt));
+}
+
+/**
+ * Gets an integer, and returns the number of the lowest bit which is set to 1
+**/
+int 
+getLowestSetBit(int num) {
+    if (num == 0)
+	return -1;
+    
+    int bitNum = 0;
+    while ((num & 1) == 0) {
+	num = num >> 1;
+	bitNum++;
+    }
+    return bitNum;
+}
+
+void
+copytf(struct trapframe * tf, struct trapframe * copyaddr) {
+    copyaddr->edi = tf->edi;
+    copyaddr->esi = tf->esi;
+    copyaddr->ebp = tf->ebp;
+    copyaddr->oesp = tf->oesp;
+    copyaddr->ebx = tf->ebx;
+    copyaddr->edx = tf->edx;
+    copyaddr->ecx = tf->ecx;
+    copyaddr->eax = tf->eax;
+    copyaddr->gs = tf->gs;
+    copyaddr->padding1 = tf->padding1;
+    copyaddr->fs = tf->fs;
+    copyaddr->padding2 = tf->padding2;
+    copyaddr->es = tf->es;
+    copyaddr->padding3 = tf->padding3;
+    copyaddr->ds = tf->ds;
+    copyaddr->padding4 = tf->padding4;
+    copyaddr->trapno = tf->trapno;
+    copyaddr->err = tf->err;
+    copyaddr->eip = tf->eip;
+    copyaddr->cs = tf->cs;
+    copyaddr->padding5 = tf->padding5;
+    copyaddr->eflags = tf->eflags;
+    copyaddr->esp = tf->esp;
+    copyaddr->ss = tf->ss;
+    copyaddr->padding6 = tf->padding6;
+    return;
+}
+
+
+char *int2bin(int a)
+{
+ char *str,*tmp;
+ int cnt = 31;
+ str = (char *) kalloc(); /*32 + 1 , because its a 32 bit bin number*/
+ tmp = str;
+ while ( cnt > -1 ){
+      str[cnt]= '0';
+      cnt --;
+ }
+ cnt = 31;
+ while (a > 0){
+       if (a%2==1){
+           str[cnt] = '1';
+        }
+      cnt--;
+        a = a/2 ;
+ }
+ return tmp;
+
+}
+
+void
+handleSignals(struct trapframe *tf) {      
+    if(tf->trapno == T_SYSCALL && proc->pending > 0) {
+      int signum = getLowestSetBit(proc->pending);
+      proc->pending &= ~(1 << signum);
+      
+      sighandler_t handler = proc->signal_handlers[signum];
+      if (!proc->backuptf) {
+          proc->backuptf = (struct trapframe*)kalloc();
+      }
+      copytf(proc->tf, proc->backuptf);          // Copy trap frame, to be reconstruced later
+      
+      int* sp = (int*)proc->tf->esp;
+      int funcAddr = (int)(sp - 5); // We put the sigret function 5*4 bytes under the stack pointer. (its size is approx. 8 bytes)
+      int funcSize = (int)&end_of_sigret - (int)&implicit_sigret;		
+      copyout(proc->pgdir, funcAddr, &implicit_sigret, funcSize);			// Push implicit_sigret argument to stack
+      
+      // We put the arguent 4 bytes under the stack pointer, and the ret address 8 bytes under.
+      sp--;
+      *sp = signum;
+      sp--;  
+      *sp = funcAddr;    
+    
+      // new we set the stack pointer to be 8 bytes under (where the ret address is located)
+      proc->tf->esp -= 8;
+      proc->tf->eip = (uint)handler;
+    }
+    return;
 }
 
 //PAGEBREAK: 41

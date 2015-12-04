@@ -573,8 +573,31 @@ signal(int signum, sighandler_t handler) {
 	else {	
 	    retHandler =  proc->signal_handlers[signum];
 	    proc->signal_handlers[signum] = handler;
-	} 
+	}
 	return (int)retHandler;
+}
+
+int 
+sigsend(int pid, int signum) {
+    struct proc *p;
+
+    if (signum >= 31 || signum < 0) {
+	return -1;
+    }
+    uint signumBits = 1 << signum; // bit respresentation of signum. e.g: signum = 5 -> signumBits = 000000...0100000         
+    acquire(&ptable.lock);
+    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+      if(p->pid == pid){
+	p->pending |= signumBits;
+	// Wake process from sleep if necessary.
+	if(p->state == SLEEPING)
+	  p->state = RUNNABLE;
+	release(&ptable.lock);
+	return 0;
+      }
+    }
+    release(&ptable.lock);
+    return -1;
 }
 
 void

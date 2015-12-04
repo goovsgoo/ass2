@@ -25,6 +25,8 @@ char* sbrk(int);
 int sleep(int);
 int uptime(void);
 sighandler_t signal(int signum, sighandler_t handler);
+int sigsend(int pid, int signum);
+int sigreturn(void);
 void advanceprocstats(void);
 int wait_stat(struct perf*);
 

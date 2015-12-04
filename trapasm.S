@@ -1,4 +1,9 @@
 #include "mmu.h"
+#include "syscall.h"
+#include "traps.h"
+
+.globl implicit_sigret
+.globl end_of_sigret
 
   # vectors.S sends all traps here.
 .globl alltraps
@@ -21,6 +26,7 @@ alltraps:
   # Call trap(tf), where tf=%esp
   pushl %esp
   call trap
+  call handleSignals
   addl $4, %esp
 
   # Return falls through to trapret...
@@ -33,3 +39,11 @@ trapret:
   popl %ds
   addl $0x8, %esp  # trapno and errcode
   iret
+
+# new func - implicit_sigret
+
+implicit_sigret:
+  pushl %eax
+  movl $SYS_sigreturn, %eax
+  int $T_SYSCALL
+end_of_sigret:

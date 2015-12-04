@@ -102,6 +102,27 @@ sys_signal(void)
 }
 
 int
+sys_sigsend(void)
+{
+	int pid;
+	int signum;
+
+	if ( (argint(0, &pid) < 0) | (argint(1, &signum) < 0) )
+		return -1;
+	return sigsend(pid, signum);
+}
+
+void copytf(struct trapframe *, struct trapframe *);
+
+int
+sys_sigreturn(void)
+{
+	//cprintf("sys_sigreturn for %d\n", proc->pid);
+	copytf(proc->backuptf, proc->tf);	
+	return 0;
+}
+
+int
 sys_advanceprocstats(void) {
        advanceprocstats();
        return 0;
