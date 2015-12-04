@@ -70,6 +70,7 @@ struct proc {
   int pid;                     	// Process ID
   struct proc *parent;         	// Parent process
   struct trapframe *tf;        	// Trap frame for current syscall
+  struct trapframe *backuptf;   // When a signal is about to execute, the trap frame is saved here to be restored when returned.
   struct context *context;     	// swtch() here to run process
   void *chan;                  	// If non-zero, sleeping on chan
   int killed;                  	// If non-zero, have been killed

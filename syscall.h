@@ -23,3 +23,5 @@
 #define SYS_signal  22
 #define SYS_advanceprocstats 23
 #define SYS_wait_stat 24
+#define SYS_sigsend  25
+#define SYS_sigreturn  26

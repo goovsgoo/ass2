@@ -99,6 +99,8 @@ extern int sys_wait(void);
 extern int sys_write(void);
 extern int sys_uptime(void);
 extern int sys_signal(void);
+extern int sys_sigsend(void);
+extern int sys_sigreturn(void);
 extern int sys_advanceprocstats(void);
 extern int sys_wait_stat(void);
 
@@ -126,6 +128,8 @@ static int (*syscalls[])(void) = {
 [SYS_mkdir]   sys_mkdir,
 [SYS_close]   sys_close,
 [SYS_signal]  sys_signal,
+[SYS_sigsend]  sys_sigsend,
+[SYS_sigreturn]  sys_sigreturn,
 [SYS_advanceprocstats] sys_advanceprocstats,
 [SYS_wait_stat] sys_wait_stat,
 

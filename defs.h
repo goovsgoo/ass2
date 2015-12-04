@@ -119,9 +119,10 @@ void            userinit(void);
 int             wait(void);
 void            wakeup(void*);
 void            yield(void);
-int 			signal(int signum, sighandler_t handler);
-void			advanceprocstats(void);
-int 			wait_stat(struct perf*);
+int 		signal(int signum, sighandler_t handler);
+int 		sigsend(int pid, int signum);
+void		advanceprocstats(void);
+int 		wait_stat(struct perf*);
 
 // swtch.S
 void            swtch(struct context**, struct context*);
