@@ -20,6 +20,18 @@ extern void trapret(void);
 
 static void wakeup1(void *chan);
 
+int x=1;
+int y=2;
+int z=3;
+int w=4;
+
+int
+xorshift128(void) {
+    int t = x ^ (x << 11);
+    x = y; y = z; z = w;
+    return w = w ^ (w >> 19) ^ t ^ (t >> 8);
+}
+
 void
 pinit(void)
 {
@@ -47,6 +59,9 @@ allocproc(void)
 found:
   p->state = EMBRYO;
   p->pid = nextpid++;
+  acquire(&tickslock);
+  p->ctime = ticks;
+  release(&tickslock);
   release(&ptable.lock);
 
   // Allocate kernel stack.
@@ -212,6 +227,9 @@ exit(void)
 
   // Jump into the scheduler, never to return.
   proc->state = ZOMBIE;
+  acquire(&tickslock);
+  proc->ttime = ticks;
+  release(&tickslock);
   sched();
   panic("zombie exit");
 }
@@ -492,7 +510,6 @@ advanceprocstats(void)
 	for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
 		if(p->state == RUNNING) {
 			p->rutime++;
-			//p->vruntime += p->priority;
 			continue;
 		}
 		if(p->state == RUNNABLE) {
@@ -521,7 +538,6 @@ wait_stat(struct perf *perfP){
 			if(p->state == ZOMBIE){
 				// Found one.
 				pid = p->pid;
-				cprintf("****pid=%d; rutime=%d;\n",pid,p->rutime);
 	////////////////////////// the extra
 				perfP->ctime =  p->ctime ;
 				perfP->ttime =  p->ttime ;
@@ -529,7 +545,6 @@ wait_stat(struct perf *perfP){
 				perfP->retime = p->retime ;
 				perfP->rutime = p->rutime ;
 //////////////////////////////////////////////////////
-				cprintf("****pid=%d; perfP:rutime=%d;\n",pid,perfP->rutime);
 				kfree(p->kstack);
 				p->kstack = 0;
 				freevm(p->pgdir);
@@ -553,3 +568,5 @@ wait_stat(struct perf *perfP){
 	}
 
  }
+
+
