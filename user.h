@@ -29,7 +29,7 @@ int sigsend(int pid, int signum);
 int sigreturn(void);
 void advanceprocstats(void);
 int wait_stat(struct perf*);
-int sys_priority(int);
+void priority(int);
 
 // ulib.c
 int stat(char*, struct stat*);
