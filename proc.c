@@ -20,12 +20,11 @@ extern void trapret(void);
 
 static void wakeup1(void *chan);
 
-#ifdef FRR
 struct {
+	struct spinlock lock;
 	struct proc* first;
 	struct proc* last;
 } rrqueue;
-#endif
 
 int x=1;
 int y=2;
@@ -41,11 +40,135 @@ xorshift128(void) {
     return w = w ^ (w >> 19) ^ t ^ (t >> 8);
 }
 
+// Prints the Round Robin FIFO queue - rightmost is the first in. (for tests)
+void printRRQueue() {
+  acquire(&rrqueue.lock);
+  struct proc * p = rrqueue.first;
+  while ( p != 0 ) {
+      //cprintf("proc: %d, state: %d, tickets: %d to %d | ", p->pid, p->state, p->firstTicketNum, p->firstTicketNum + p->tickets - 1);
+      p = p->rrnext;
+  }  
+  //cprintf("\n");
+  release(&rrqueue.lock);
+}
+
+// Push process p to Round Robin FIFO queue
+void
+pushProcToRRqueue(struct proc* p)
+{
+    //cprintf("pushing proc %d to queue!\n", p->pid);
+    acquire(&rrqueue.lock);
+    if (!rrqueue.first) {
+	rrqueue.first = p;    
+    }
+    if (rrqueue.last) {
+	rrqueue.last->rrnext = p;
+	p->rrprev = rrqueue.last;
+    }
+    rrqueue.last = p;
+    release(&rrqueue.lock);
+}
+
+// Remove process p from Round Robin FIFO queue
+void
+removeProcFromRRqueue(struct proc* p)
+{
+    //cprintf("removing proc %d from queue!\n", p->pid);
+    if (p->rrprev) {
+	p->rrprev->rrnext = p->rrnext;
+    }
+    if (p->rrnext) {
+	p->rrnext->rrprev = p->rrprev;
+    }    
+    if (p == rrqueue.first) {
+	rrqueue.first = p->rrnext;
+    }	    
+    if (p == rrqueue.last) {
+	rrqueue.last = p->rrprev;  
+    }
+    
+    p->rrnext = 0;
+    p->rrprev = 0;
+}
+
+// Rolling a ticket, and returns the process which holds that ticket, or 0 if FIFO is empty.
+struct proc* 
+pickProcess() 
+{
+    //cprintf("picking, total tickets: %d\n", totalTickets);
+    struct proc * selectedProc = 0;
+    
+    acquire(&rrqueue.lock);
+    if (totalTickets > 0) {
+	int ticket = xorshift128() % totalTickets;      
+	//cprintf("ticket no. is: %d\n", ticket);
+	struct proc * p = rrqueue.first;
+	while ( p != 0 ) {
+	    if(ticket >= p->firstTicketNum && ticket <= (p->tickets + p->firstTicketNum - 1)) {
+		selectedProc = p;
+		break;
+	    }	
+	    p = p->rrnext;
+	}  
+    }
+    release(&rrqueue.lock);
+     //if (selectedProc != 0)
+     //  cprintf("pid chose to run is: %d, tickets: %d to %d\n", selectedProc->pid, selectedProc->firstTicketNum, selectedProc->firstTicketNum + selectedProc->tickets - 1);
+    return selectedProc;
+}
+
+// Deliver ticket to all processes in the FIFO queue
+void
+deliverTicketsToFIFOProcs()
+{
+    totalTickets = 0;
+    acquire(&rrqueue.lock);
+    struct proc * p = rrqueue.last;
+    if (p == 0) {
+	release(&rrqueue.lock);
+	return;
+    }
+    #if defined(FRR) || defined(FCFS)
+	while ( p != rrqueue.first ) {  
+	    if (p->state != RUNNABLE) {
+		struct proc* tmp = p->rrprev;
+		removeProcFromRRqueue(p);
+		p = tmp;
+		continue;
+	    }
+	    p->firstTicketNum = totalTickets + 1;
+	    p->tickets = EXE_TICKETS;
+	    totalTickets += EXE_TICKETS;
+	    p = p->rrprev;
+	}	
+	p->firstTicketNum = totalTickets + 1;
+	p->tickets = 100*EXE_TICKETS;
+	totalTickets += p->tickets;
+    #endif
+    #ifdef PRS
+	while ( p != 0 ) {
+	    if (p->state != RUNNABLE) {
+		struct proc* tmp = p->rrprev;
+		removeProcFromRRqueue(p);
+		p = tmp;
+		continue;
+	    }
+	    p->firstTicketNum = totalTickets + 1;
+	    p->tickets = EXE_TICKETS + EXE_TICKETS*p->priority;
+	    totalTickets += p->tickets;
+	    p = p->rrprev;
+	}	      
+    #endif
+    release(&rrqueue.lock);
+    printRRQueue();
+}
+
 void
 pinit(void)
 {
   initlock(&ptable.lock, "ptable");
 }
+
 
 //PAGEBREAK: 32
 // Look in the process table for an UNUSED proc.
@@ -68,8 +191,8 @@ allocproc(void)
 found:
   p->state = EMBRYO;
   p->pid = nextpid++;
-  p->tickets = EXE_TICKETS;
-  totalTickets += EXE_TICKETS;
+//   p->tickets = EXE_TICKETS;
+//   totalTickets += EXE_TICKETS;
   acquire(&tickslock);
   p->ctime = ticks;
   release(&tickslock);
@@ -126,13 +249,9 @@ userinit(void)
   p->cwd = namei("/");
 
   p->state = RUNNABLE;
-  p->tickets = EXE_TICKETS;
-#ifdef FRR
-	if (!rrqueue.first)
-		rrqueue.first = p;
-	if (rrqueue.last)
-		rrqueue.last->rrnext = p;
-	rrqueue.last = p;
+//   p->tickets = EXE_TICKETS;
+#if defined(FRR) || defined(FCFS) || defined(PRS)
+  pushProcToRRqueue(p);
 #endif
 }
 
@@ -198,16 +317,12 @@ fork(void)
    np->ttime	 = 0;
    np->stime	 = 0;
    np->retime	 = 0;
-   np->priority = 0;
+   np->priority = 1;
   // lock to force the compiler to emit the np->state write last.
   acquire(&ptable.lock);
   np->state = RUNNABLE;
-  #ifdef FRR
-	if (!rrqueue.first)
-		rrqueue.first = np;
-	if (rrqueue.last)
-		rrqueue.last->rrnext = np;
-	rrqueue.last = np;
+  #if defined(FRR) || defined(FCFS) || defined(PRS)
+      pushProcToRRqueue(np);
   #endif
   release(&ptable.lock);
   
@@ -241,7 +356,7 @@ exit(void)
 
   acquire(&ptable.lock);
 
-  totalTickets -= proc->tickets;
+//   totalTickets -= proc->tickets;
   // Parent might be sleeping in wait().
   wakeup1(proc->parent);
 
@@ -326,11 +441,13 @@ scheduler(void)
     sti();
 
     // Loop over process table looking for process to run.
-    acquire(&ptable.lock);
+acquire(&ptable.lock);    
 #ifdef DEFAULT
+    
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
       if(p->state != RUNNABLE)
         continue;
+      
       // Switch to chosen process.  It is the process's job
       // to release ptable.lock and then reacquire it
       // before jumping back to us.
@@ -344,7 +461,9 @@ scheduler(void)
       // It should have changed its p->state before coming back.
       proc = 0;
     }
+    
 #endif
+<<<<<<< HEAD
 #ifdef FRR
     		while ( (p = rrqueue.first) ) {
     			if  (p->state != RUNNABLE) {
@@ -366,9 +485,29 @@ scheduler(void)
     			proc = 0;
     			//break;
     		}
+=======
+#if defined(FRR) || defined(FCFS) || defined(PRS)
+  
+    deliverTicketsToFIFOProcs();
+    p = pickProcess(); 
+    if (p != 0) {
+	proc = p;
+	acquire(&rrqueue.lock);
+	removeProcFromRRqueue(p);
+	release(&rrqueue.lock);
+	switchuvm(p);
+	p->state = RUNNING;    
+	swtch(&cpu->scheduler, proc->context);
+	switchkvm();
+	
+	// Process is done running for now.
+	// It should have changed its p->state before coming back.
+	proc = 0;
+	//break;
+    }
+>>>>>>> d30d15636d346f3ce5f4a6781f32f735d2896234
 #endif
-    release(&ptable.lock);
-
+release(&ptable.lock);
   }
 }
 
@@ -398,12 +537,8 @@ yield(void)
 {
   acquire(&ptable.lock);  //DOC: yieldlock
   proc->state = RUNNABLE;
-  #ifdef FRR
-	if (!rrqueue.first)
-		rrqueue.first = proc;
-	if (rrqueue.last)
-		rrqueue.last->rrnext = proc;
-	rrqueue.last = proc;
+  #if defined(FRR) || defined(FCFS) || defined(PRS)
+      pushProcToRRqueue(proc);
   #endif
   sched();
   release(&ptable.lock);
@@ -434,6 +569,7 @@ forkret(void)
 void
 sleep(void *chan, struct spinlock *lk)
 {
+  //cprintf("I, process %d, went to sleep\n", proc->pid);
   if(proc == 0)
     panic("sleep");
 
@@ -454,7 +590,7 @@ sleep(void *chan, struct spinlock *lk)
   // Go to sleep.
   proc->chan = chan;
   proc->state = SLEEPING;
-  totalTickets -= proc->tickets;
+//   totalTickets -= proc->tickets;
   sched();
 
   // Tidy up.
@@ -478,14 +614,10 @@ wakeup1(void *chan)
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++)
     if(p->state == SLEEPING && p->chan == chan){
       p->state = RUNNABLE;
-     totalTickets += p->tickets;
-	  #ifdef FRR
-			if (!rrqueue.first)
-				rrqueue.first = p;
-			if (rrqueue.last)
-				rrqueue.last->rrnext = p;
-			rrqueue.last = p;
-	  #endif
+//       totalTickets += p->tickets;
+      #if defined(FRR) || defined(FCFS) || defined(PRS)
+	  pushProcToRRqueue(p);
+      #endif
     }
 }
 
@@ -513,13 +645,9 @@ kill(int pid)
       // Wake process from sleep if necessary.
       if(p->state == SLEEPING){
         p->state = RUNNABLE;
-		#ifdef FRR
-				if (!rrqueue.first)
-					rrqueue.first = p;
-				if (rrqueue.last)
-					rrqueue.last->rrnext = p;
-				rrqueue.last = p;
-		#endif
+	#if defined(FRR) || defined(FCFS) || defined(PRS)
+	    pushProcToRRqueue(p);
+	#endif
       }
       release(&ptable.lock);
       return 0;
@@ -636,15 +764,16 @@ wait_stat(struct perf *perfP){
 				continue;
 			havekids = 1;
 			if(p->state == ZOMBIE){
+			  
 				// Found one.
 				pid = p->pid;
-	////////////////////////// the extra
+				
+				// the extra
 				perfP->ctime =  p->ctime ;
 				perfP->ttime =  p->ttime ;
 				perfP->stime =  p->stime ;
 				perfP->retime = p->retime ;
 				perfP->rutime = p->rutime ;
-//////////////////////////////////////////////////////
 				kfree(p->kstack);
 				p->kstack = 0;
 				freevm(p->pgdir);
@@ -657,6 +786,7 @@ wait_stat(struct perf *perfP){
 				return pid;
 			}
 		}
+		
 		// No point waiting if we don't have any children.
 		if(!havekids || proc->killed){
 			release(&ptable.lock);

@@ -119,6 +119,7 @@ sys_sigreturn(void)
 {
 	//cprintf("sys_sigreturn for %d\n", proc->pid);
 	copytf(proc->backuptf, proc->tf);	
+	proc->insignal=0;
 	return 0;
 }
 
@@ -139,4 +140,14 @@ sys_wait_stat(void)
                return -1;
        return  wait_stat((struct perf *)perfP);
        //return  wait_stat((struct perf *)perfP);
+}
+
+int
+sys_priority(void)
+{
+      int priority = 0;
+      if(argint(0, &priority) < 0)
+	  return -1;
+      proc->priority = priority;
+      return 0;
 }

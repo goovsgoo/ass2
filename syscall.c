@@ -103,7 +103,7 @@ extern int sys_sigsend(void);
 extern int sys_sigreturn(void);
 extern int sys_advanceprocstats(void);
 extern int sys_wait_stat(void);
-
+extern int sys_priority(void);
 
 static int (*syscalls[])(void) = {
 [SYS_fork]    sys_fork,
@@ -132,7 +132,7 @@ static int (*syscalls[])(void) = {
 [SYS_sigreturn]  sys_sigreturn,
 [SYS_advanceprocstats] sys_advanceprocstats,
 [SYS_wait_stat] sys_wait_stat,
-
+[SYS_priority] sys_priority,
 };
 
 void
