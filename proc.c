@@ -463,29 +463,6 @@ acquire(&ptable.lock);
     }
     
 #endif
-<<<<<<< HEAD
-#ifdef FRR
-    		while ( (p = rrqueue.first) ) {
-    			if  (p->state != RUNNABLE) {
-    				rrqueue.first = p->rrnext;
-    				p->rrnext = 0;
-    				continue;
-    			}
-    			//cprintf("%d %d\n", p->pid, p->tickets);
-    			proc = p;
-    			switchuvm(p);
-    			p->state = RUNNING;
-    			rrqueue.first = p->rrnext;
-    			p->rrnext = 0;
-    			swtch(&cpu->scheduler, proc->context);
-    			switchkvm();
-
-    			// Process is done running for now.
-    			// It should have changed its p->state before coming back.
-    			proc = 0;
-    			//break;
-    		}
-=======
 #if defined(FRR) || defined(FCFS) || defined(PRS)
   
     deliverTicketsToFIFOProcs();
@@ -505,7 +482,6 @@ acquire(&ptable.lock);
 	proc = 0;
 	//break;
     }
->>>>>>> d30d15636d346f3ce5f4a6781f32f735d2896234
 #endif
 release(&ptable.lock);
   }
