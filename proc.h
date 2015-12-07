@@ -1,8 +1,8 @@
 // Segments in proc->gdt.
 #define NSEGS     7
 #define SIGNUM     32
-#define EXE_TICKETS 1000
-#define FIFO_DIFFERECE 1000
+#define EXE_TICKETS 10
+#define FIFO_DIFFERECE 100
 
 // Per-CPU state
 struct cpu {

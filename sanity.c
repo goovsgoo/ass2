@@ -18,10 +18,10 @@ main(int argc, char *argv[])
 	int toRun = 0;
 	int toTurnaround = 0;
 	printf(1, "Please wait......\n");
-	priority(1);
+	priority(2);
 	while (n-- > 0) {
 		if (!fork()) { // child process
-			priority(n%3);
+			priority(getpid() % 3);
 			double waister = 1000000;
 			while ( (waister = waister-0.1) > 0.0);
 			//*********** for ck sleep time!

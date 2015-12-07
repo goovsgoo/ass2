@@ -146,6 +146,9 @@ deliverTicketsToFIFOProcs()
 	totalTickets += p->tickets;
     #endif
     #ifdef PRS
+	int priority1Procs = 0;
+	int priority2Procs = 0;
+	int priority3Procs = 0;
 	while ( p != 0 ) {
 	    if (p->state != RUNNABLE) {
 		struct proc* tmp = p->rrprev;
@@ -153,11 +156,33 @@ deliverTicketsToFIFOProcs()
 		p = tmp;
 		continue;
 	    }
-	    p->firstTicketNum = totalTickets + 1;
-	    p->tickets = EXE_TICKETS + EXE_TICKETS*p->priority*FIFO_DIFFERECE;
-	    totalTickets += p->tickets;
+	    if (p->priority <= 0) {
+		  priority1Procs++;
+	    }
+	    else if (p->priority == 1) {
+		  priority2Procs++;
+	    }
+	    else if (p->priority >= 2) {
+		  priority3Procs++;
+	    }
 	    p = p->rrprev;
-	}	      
+	}	
+	
+	p = rrqueue.last;
+	while ( p != 0 ) {
+	  p->firstTicketNum = totalTickets + 1;
+	  if (p->priority <= 0) {
+	      p->tickets = EXE_TICKETS;
+	  }
+	  else if (p->priority == 1) {
+	      p->tickets = EXE_TICKETS + EXE_TICKETS * priority1Procs * FIFO_DIFFERECE;
+	  }
+	  else if (p->priority >= 2) {
+	    p->tickets = EXE_TICKETS + EXE_TICKETS * (priority1Procs + priority2Procs * FIFO_DIFFERECE) * FIFO_DIFFERECE ;
+	  }
+	  totalTickets += p->tickets;
+	  p = p->rrprev;
+	}
     #endif
     release(&rrqueue.lock);
     printRRQueue();
@@ -249,6 +274,7 @@ userinit(void)
   p->cwd = namei("/");
 
   p->state = RUNNABLE;
+  p->priority = 0;
 //   p->tickets = EXE_TICKETS;
 #if defined(FRR) || defined(FCFS) || defined(PRS)
   pushProcToRRqueue(p);
@@ -308,7 +334,7 @@ fork(void)
 
   safestrcpy(np->name, proc->name, sizeof(proc->name));
  
-  pid = np->pid;
+   pid = np->pid;
    np->runQuanta = 0;		//reset proc Time
    np->rutime = 0;
    acquire(&tickslock);
@@ -317,7 +343,7 @@ fork(void)
    np->ttime	 = 0;
    np->stime	 = 0;
    np->retime	 = 0;
-   np->priority = 1;
+   np->priority = proc->priority;
   // lock to force the compiler to emit the np->state write last.
   acquire(&ptable.lock);
   np->state = RUNNABLE;
