@@ -192,7 +192,9 @@ fork(void)
   pid = np->pid;
    np->runQuanta = 0;		//reset proc Time
    np->rutime = 0;
-   np->ctime	 = 0;
+   acquire(&tickslock);
+   np->ctime = ticks;
+   release(&tickslock);
    np->ttime	 = 0;
    np->stime	 = 0;
    np->retime	 = 0;
@@ -347,10 +349,10 @@ scheduler(void)
     		while ( (p = rrqueue.first) ) {
     			if  (p->state != RUNNABLE) {
     				rrqueue.first = p->rrnext;
-    				p->rrnext = 0;git
+    				p->rrnext = 0;
     				continue;
     			}
-    			cprintf("%d %d\n", p->pid, p->tickets);
+    			//cprintf("%d %d\n", p->pid, p->tickets);
     			proc = p;
     			switchuvm(p);
     			p->state = RUNNING;

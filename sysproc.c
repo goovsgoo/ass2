@@ -133,7 +133,7 @@ sys_wait_stat(void)
 {
       // struct perf *perfP=0;
 	   int perfP = 0;
-       cprintf("sys_wait_stat \n");
+       //cprintf("sys_wait_stat \n");
        //if(argptr(0, (char**)&perfP, 32) < 0)
        if(argint(0,&perfP) < 0)
                return -1;
