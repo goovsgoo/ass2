@@ -25,3 +25,4 @@
 #define SYS_wait_stat 24
 #define SYS_sigsend  25
 #define SYS_sigreturn  26
+#define SYS_priority  27

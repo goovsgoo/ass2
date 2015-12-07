@@ -13,6 +13,7 @@ struct gatedesc idt[256];
 extern uint vectors[];  // in vectors.S: array of 256 entry pointers
 struct spinlock tickslock;
 uint ticks;
+int isFCFS = 0;
 
 extern int implicit_sigret();
 extern int end_of_sigret();
@@ -106,10 +107,10 @@ char *int2bin(int a)
 
 void
 handleSignals(struct trapframe *tf) {      
-    if(tf->trapno == T_SYSCALL && proc->pending > 0) {
+    if(tf->trapno == T_SYSCALL && proc->pending > 0 && proc->insignal == 0) {      
       int signum = getLowestSetBit(proc->pending);
       proc->pending &= ~(1 << signum);
-      
+      proc->insignal = 1;
       sighandler_t handler = proc->signal_handlers[signum];
       if (!proc->backuptf) {
           proc->backuptf = (struct trapframe*)kalloc();
@@ -206,7 +207,10 @@ trap(struct trapframe *tf)
   // Force process to give up CPU on clock tick.
   // If interrupts were on while locks held, would need to check nlock.
   if(proc && proc->state == RUNNING && tf->trapno == T_IRQ0+IRQ_TIMER){
-	  if( proc->runQuanta % QUANTA == 0 ){
+	  #ifdef FCFS
+		 isFCFS = 1;
+	  #endif
+	  if( proc->runQuanta % QUANTA == 0 && isFCFS == 0){
 		  //cprintf(" \n ******* pid=%d; runQuanta=%d; rutime=%d; \n",proc->pid,proc->runQuanta,proc->rutime-1);
 		  proc->runQuanta=proc->rutime;
 		  yield();

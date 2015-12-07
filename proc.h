@@ -78,18 +78,19 @@ struct proc {
   struct inode *cwd;           	// Current directory
   char name[16];               	// Process name (debugging)
   int pending;			// Holds 32-bit integer, representing up to 32 pending singals for this process
+  int insignal;			// set to 1 - when the process is handling a signal, 0 otherwise
   sighandler_t signal_handlers[SIGNUM]; // an array of pointers to handler functins for the signals 
-  int ctime;					//Creation time
-  int ttime;					//Termination time
-  int stime;					//Sleeping state time
-  int retime;					//Ready state time
-  int rutime;					//Running state time
-  int runQuanta ;				//run time from quanta to quanta
-  int priority;
-  int tickets;					//number of tuckets for lottery
-  #ifdef FRR
-    struct proc* rrnext;
-  #endif
+  int ctime;			// Creation time
+  int ttime;			// Termination time
+  int stime;			// Sleeping state time
+  int retime;			// Ready state time
+  int rutime;			// Running state time
+  int runQuanta ;		// run time from quanta to quanta
+  int priority;			// Priority
+  int tickets;			// number of tickets for lottery
+  int firstTicketNum;		// number of the first ticket the process holds
+  struct proc* rrnext;
+  struct proc* rrprev;
 };
 
 // Process memory is laid out contiguously, low addresses first:
