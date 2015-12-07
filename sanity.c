@@ -24,10 +24,6 @@ main(int argc, char *argv[])
 			priority(getpid() % 3);
 			double waister = 1000000;
 			while ( (waister = waister-0.1) > 0.0);
-			//*********** for ck sleep time!
-			//int pidg = getpid();
-			//int tmp[2];
-			//read(tmp[0], &pidg, sizeof(pidg));
 			exit();
 		}
 	}
