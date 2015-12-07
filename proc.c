@@ -142,7 +142,7 @@ deliverTicketsToFIFOProcs()
 	    p = p->rrprev;
 	}	
 	p->firstTicketNum = totalTickets + 1;
-	p->tickets = 100*EXE_TICKETS;
+	p->tickets = EXE_TICKETS + FIFO_DIFFERECE * totalTickets;
 	totalTickets += p->tickets;
     #endif
     #ifdef PRS
@@ -154,7 +154,7 @@ deliverTicketsToFIFOProcs()
 		continue;
 	    }
 	    p->firstTicketNum = totalTickets + 1;
-	    p->tickets = EXE_TICKETS + EXE_TICKETS*p->priority;
+	    p->tickets = EXE_TICKETS + EXE_TICKETS*p->priority*10;
 	    totalTickets += p->tickets;
 	    p = p->rrprev;
 	}	      
